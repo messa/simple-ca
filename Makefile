@@ -1,0 +1,2 @@
+check:
+	PYTHONPATH=. PYTHONDONTWRITEBYTECODE=1 py.test-3 -vs tests
