@@ -24,7 +24,10 @@ def test_init_ca():
 def test_create_server_cert():
     s = SimpleCA()
     ca = s.init_ca(org='ACME')
-    sc = s.create_server_cert(ca_cert=ca.cert, ca_key=ca.key, ca_key_password=ca.key_password, cn='localhost', org='ACME', dc='example')
+    # SimpleCA object is stateless, you have to pass CA data again to create server cert
+    sc = s.create_server_cert(
+        ca_cert=ca.cert, ca_key=ca.key, ca_key_password=ca.key_password,
+        cn='localhost', org='ACME', dc='example')
     assert sc.cert
     assert sc.key
     assert sc.key_password

@@ -8,6 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 class InitCA:
+    '''
+    This class API may change (non-backward-compatible) between minor versions.
+    '''
 
     def __init__(self, openssl_cli):
         self.logger = logger
@@ -90,3 +93,9 @@ class InitCA:
             '-in', self._cert_file)
         for line in out.splitlines():
             self.logger.debug('Generated CA cert: %s', line.rstrip())
+        assert 'CA:TRUE' in out
+        assert 'CA:FALSE' not in out
+        assert 'Certificate Sign' in out
+        assert 'CRL Sign' in out
+        assert 'SSL Client' not in out
+        assert 'SSL Server' not in out

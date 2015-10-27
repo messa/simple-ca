@@ -9,6 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 class CreateServerCert:
+    '''
+    This class API may change (non-backward-compatible) between minor versions.
+    '''
 
     def __init__(self, openssl_cli, ca_cert, ca_key, ca_key_password):
         self.logger = logger
@@ -131,7 +134,14 @@ class CreateServerCert:
             '-in', self._cert_file)
         for line in out.splitlines():
             self.logger.debug('Generated server cert: %s', line.rstrip())
+        assert 'CA:FALSE' in out
+        assert 'CA:TRUE' not in out
+        assert 'SSL Client' in out
+        assert 'SSL Server' in out
+        assert 'Certificate Sign' not in out
+        assert 'CRL Sign' not in out
         out = self.openssl_cli(
             'verify',
             '-CAfile', self._ca_cert_file,
             self._cert_file)
+        assert 'OK' in out

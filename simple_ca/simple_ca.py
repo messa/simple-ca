@@ -12,6 +12,9 @@ CKP = namedtuple('CKP', ('cert', 'key', 'key_password'))
 
 
 class SimpleCA:
+    '''
+    This is the main API.
+    '''
 
     def __init__(self):
         self.logger = logger
