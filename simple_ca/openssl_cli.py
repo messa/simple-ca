@@ -6,6 +6,10 @@ logger = logging.getLogger(__name__)
 
 class OpenSSLCLI:
 
+    '''
+    Just a wrapper around the openssl command
+    '''
+
     def __init__(self):
         self.logger = logger
         self.openssl_command = 'openssl'

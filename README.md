@@ -1,7 +1,7 @@
 Simple CA
 =========
 
-__Python OpenSSL wrapper__ that can create __your own certificate authority (CA)__ and create server certficates with ut.
+__Python OpenSSL wrapper__ that can create __your own certificate authority (CA)__ and create server certficates with it.
 
 Use cases:
 
