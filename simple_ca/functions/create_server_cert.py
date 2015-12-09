@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class CreateServerCert:
+
     '''
     This class API may change (non-backward-compatible) between minor versions.
     '''

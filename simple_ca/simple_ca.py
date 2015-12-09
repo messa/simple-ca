@@ -12,6 +12,7 @@ CKP = namedtuple('CKP', ('cert', 'key', 'key_password'))
 
 
 class SimpleCA:
+
     '''
     This is the main API.
     '''
@@ -35,6 +36,7 @@ class SimpleCA:
         - org: Organization Name, most likely should be the same as CA org
         - dc: Domain Component
         '''
-        x = CreateServerCert(self.openssl_cli, ca_cert=ca_cert, ca_key=ca_key, ca_key_password=ca_key_password)
+        x = CreateServerCert(
+            self.openssl_cli, ca_cert=ca_cert, ca_key=ca_key, ca_key_password=ca_key_password)
         x.run(cn=cn, org=org, dc=dc)
         return CKP(cert=x.cert, key=x.key, key_password=x.key_password)
