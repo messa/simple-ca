@@ -1,6 +1,8 @@
 Simple CA
 =========
 
+[![CircleCI](https://circleci.com/gh/messa/simple-ca/tree/master.svg?style=svg&circle-token=e4477fd084dccd6c615d8917b6c86ff76ae0ca26)](https://circleci.com/gh/messa/simple-ca/tree/master)
+
 __Python OpenSSL wrapper__ that can create __your own certificate authority (CA)__ and create server certficates with it.
 
 Use cases:
