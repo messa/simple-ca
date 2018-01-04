@@ -1,0 +1,35 @@
+version: 2
+jobs:
+
+    build_python36: &build_python
+        working_directory: ~/simple-ca
+        docker:
+            - image: circleci/python:3.6
+        steps:
+            - checkout
+            - run:
+                name: Setup venv
+                command: |
+                    python3 -m venv ~/venv
+                    ~/venv/bin/pip install -U pip wheel
+                    ~/venv/bin/pip install -r requirements-tests.txt
+            - run: ~/venv/bin/pip install -e .
+            - run: ~/venv/bin/pytest -vv --tb=native --color=yes tests
+
+    build_python35:
+      <<: *build_python
+      docker:
+          - image: circleci/python:3.5
+
+    build_python34:
+      <<: *build_python
+      docker:
+          - image: circleci/python:3.4
+
+workflows:
+    version: 2
+    build_and_test:
+        jobs:
+            - build_python36
+            - build_python35
+            - build_python34
