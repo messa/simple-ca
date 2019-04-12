@@ -10,6 +10,15 @@ Use cases:
 - enable SSL communication in your private MongoDB cluster
 - easy setup your SSL infrastructure for any services that need it, for example VPN
 
+
+Installation
+------------
+
+```console
+python3 -m pip install https://github.com/messa/simple-ca/archive/v0.0.1.zip
+```
+
+
 Usage
 -----
 
