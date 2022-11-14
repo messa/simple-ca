@@ -1,3 +1,4 @@
 .cache
 local
 *.egg-info
+venv
