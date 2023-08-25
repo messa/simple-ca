@@ -1,4 +1,4 @@
-from pprint import pprint
+import re
 
 from simple_ca import SimpleCA
 
@@ -17,7 +17,7 @@ def test_init_ca():
     assert isinstance(result.key, str)
     assert isinstance(result.key_password, str)
     assert '-----BEGIN CERTIFICATE-----' in result.cert
-    assert '-----BEGIN RSA PRIVATE KEY-----' in result.key
+    assert re.match(r'-----BEGIN (ENCRYPTED|RSA) PRIVATE KEY-----', result.key)
     assert len(result.key_password) > 10
 
 
@@ -35,5 +35,5 @@ def test_create_server_cert():
     assert isinstance(sc.key, str)
     assert isinstance(sc.key_password, str)
     assert '-----BEGIN CERTIFICATE-----' in sc.cert
-    assert '-----BEGIN RSA PRIVATE KEY-----' in sc.key
+    assert re.match(r'-----BEGIN (ENCRYPTED|RSA) PRIVATE KEY-----', sc.key)
     assert len(sc.key_password) > 10
