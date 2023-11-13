@@ -37,3 +37,19 @@ def test_create_server_cert():
     assert '-----BEGIN CERTIFICATE-----' in sc.cert
     assert re.match(r'-----BEGIN (ENCRYPTED|RSA) PRIVATE KEY-----', sc.key)
     assert len(sc.key_password) > 10
+
+
+def test_create_server_cert_using_ca_api():
+    s = SimpleCA()
+    ca = s.init_ca(org='ACME')
+    # SimpleCA object is stateless, you have to pass CA data again to create server cert
+    sc = ca.create_server_cert(cn='localhost', org='ACME', dc='example')
+    assert sc.cert
+    assert sc.key
+    assert sc.key_password
+    assert isinstance(sc.cert, str)
+    assert isinstance(sc.key, str)
+    assert isinstance(sc.key_password, str)
+    assert '-----BEGIN CERTIFICATE-----' in sc.cert
+    assert '-----BEGIN RSA PRIVATE KEY-----' in sc.key
+    assert len(sc.key_password) > 10
