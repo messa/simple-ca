@@ -1,3 +1,4 @@
+import ipaddress
 import logging
 from pathlib import Path
 import time
@@ -21,7 +22,7 @@ class CreateServerCert:
         self.ca_key = ca_key
         self.ca_key_password = ca_key_password
 
-    def run(self, cn, org, dc):
+    def run(self, cn, org, dc, san=None):
         with TemporaryDirectory(prefix='simple_ca.') as temp_dir:
             temp_dir = Path(temp_dir)
             self._conf_file = temp_dir / 'openssl.conf'
@@ -38,7 +39,7 @@ class CreateServerCert:
             self._key_password_file = temp_dir / 'server.key.password'
             self._csr_file = temp_dir / 'server.csr'
             self._cert_file = temp_dir / 'server.cert'
-            self._create_cfg()
+            self._create_cfg(san=san)
             self._create_key()
             self._create_csr(cn=cn, org=org, dc=dc)
             self._create_cert()
@@ -46,29 +47,41 @@ class CreateServerCert:
             self.key = self._key_file.open().read()
             self.cert = self._cert_file.open().read()
 
-    def _create_cfg(self):
+    @staticmethod
+    def _san_entry(name):
+        try:
+            ipaddress.ip_address(name)
+            return 'IP:' + name
+        except ValueError:
+            return 'DNS:' + name
+
+    def _create_cfg(self, san=None):
         assert not self._conf_file.is_file()
+        cfg = dedent('''
+            [req]
+            default_bits        = 4096
+            distinguished_name  = req_distinguished_name
+            string_mask         = utf8only
+            default_md          = sha256
+            [req_distinguished_name]
+            0.organizationName              = Organization Name
+            organizationalUnitName          = Organizational Unit Name
+            0.DC                            = Domain Component
+            commonName                      = Common Name
+            [v3_server_client]
+            basicConstraints        = CA:FALSE
+            nsCertType              = server, client
+            nsComment               = "OpenSSL Generated Server Certificate"
+            subjectKeyIdentifier    = hash
+            authorityKeyIdentifier  = keyid,issuer:always
+            keyUsage                = critical, nonRepudiation, digitalSignature, keyEncipherment
+            extendedKeyUsage        = serverAuth, clientAuth
+        ''')
+        if san:
+            entries = ','.join(self._san_entry(s) for s in san)
+            cfg = cfg.rstrip() + '\nsubjectAltName          = ' + entries + '\n'
         with self._conf_file.open('w') as f:
-            f.write(dedent('''
-                [req]
-                default_bits        = 4096
-                distinguished_name  = req_distinguished_name
-                string_mask         = utf8only
-                default_md          = sha256
-                [req_distinguished_name]
-                0.organizationName              = Organization Name
-                organizationalUnitName          = Organizational Unit Name
-                0.DC                            = Domain Component
-                commonName                      = Common Name
-                [v3_server_client]
-                basicConstraints        = CA:FALSE
-                nsCertType              = server, client
-                nsComment               = "OpenSSL Generated Server Certificate"
-                subjectKeyIdentifier    = hash
-                authorityKeyIdentifier  = keyid,issuer:always
-                keyUsage                = critical, nonRepudiation, digitalSignature, keyEncipherment
-                extendedKeyUsage        = serverAuth, clientAuth
-            '''))
+            f.write(cfg)
 
     def _create_key(self):
         assert not self._key_file.is_file()
