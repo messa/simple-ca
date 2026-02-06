@@ -13,7 +13,7 @@ Installation
 ------------
 
 ```console
-python3 -m pip install https://github.com/messa/simple-ca/archive/v0.0.1.zip
+python3 -m pip install https://github.com/messa/simple-ca/archive/v0.0.2.zip
 ```
 
 
