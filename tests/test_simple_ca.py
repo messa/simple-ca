@@ -38,9 +38,24 @@ def test_create_server_cert():
     assert '-----BEGIN CERTIFICATE-----' in sc.cert
     assert re.match(r'-----BEGIN (ENCRYPTED|RSA) PRIVATE KEY-----', sc.key)
     assert len(sc.key_password) > 10
+    
+    
+def test_create_server_cert_with_san_dns():
+    s = SimpleCA()
+    ca = s.init_ca(org='ACME')
+    # SimpleCA object is stateless, you have to pass CA data again to create server cert
+    sc = s.create_server_cert(
+        ca_cert=ca.cert, ca_key=ca.key, ca_key_password=ca.key_password,
+        cn='localhost', org='ACME', dc='example',
+        san=['DNS:localhost'])
+    # Verify SAN entries appear in the certificate
+    out = subprocess.check_output(
+        ['openssl', 'x509', '-noout', '-text'],
+        input=sc.cert.encode()).decode()
+    assert 'DNS:localhost' in out
 
 
-def test_create_server_cert_with_san():
+def test_create_server_cert_with_san_hostname():
     s = SimpleCA()
     ca = s.init_ca(org='ACME')
     sc = s.create_server_cert(
