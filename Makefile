@@ -1,10 +1,10 @@
-check: local/venv34
-	PYTHONDONTWRITEBYTECODE=1 local/venv34/bin/py.test -vs tests
+check: venv/packages_installed
+	PYTHONDONTWRITEBYTECODE=1 venv/bin/python3 -m pytest -vs tests
 
-local/venv34:
-	[ -d local/venv34 ] || mkdir -p local && pyvenv-3.4 local/venv34
-	local/venv34/bin/pip install -U pip
-	local/venv34/bin/pip install pytest
-	local/venv34/bin/pip install -e .
+venv/packages_installed:
+	test -f venv/packages_installed || python3 -m venv venv
+	venv/bin/pip install -r requirements-tests.txt
+	venv/bin/pip install -e .
+	touch $@
 
 .PHONY: check
