@@ -56,7 +56,7 @@ def test_create_server_cert_with_san():
     import subprocess
     p = subprocess.run(
         ['openssl', 'x509', '-noout', '-text'],
-        input=sc.cert, capture_output=True, text=True)
+        input=sc.cert, capture_output=True, text=True, check=True)
     cert_text = p.stdout
     assert 'DNS:example.com' in cert_text
     assert 'DNS:www.example.com' in cert_text
