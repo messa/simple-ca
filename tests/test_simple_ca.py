@@ -40,7 +40,7 @@ def test_create_server_cert():
     assert len(sc.key_password) > 10
     
     
-def test_create_server_cert_with_san():
+def test_create_server_cert_with_san_dns():
     s = SimpleCA()
     ca = s.init_ca(org='ACME')
     # SimpleCA object is stateless, you have to pass CA data again to create server cert
@@ -55,7 +55,7 @@ def test_create_server_cert_with_san():
     assert 'DNS:localhost' in out
 
 
-def test_create_server_cert_with_san():
+def test_create_server_cert_with_san_hostname():
     s = SimpleCA()
     ca = s.init_ca(org='ACME')
     sc = s.create_server_cert(
