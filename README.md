@@ -36,6 +36,12 @@ sc = s.create_server_cert(
 # sc.cert is the SSL certficate
 # sc.key is key to that certificate (needed on the server)
 # sc.key_password is password to the key, keep this private
+
+# You can also add Subject Alternative Names (SAN) for SNI support:
+sc = s.create_server_cert(
+    ca_cert=ca.cert, ca_key=ca.key, ca_key_password=ca.key_password,
+    cn='example.com', org='ACME',
+    san_dns=['example.com', 'www.example.com', 'mail.example.com'])
 ```
 
 I recommend to store the `cert` and `key` in plain text files and `key_password` in GPG-encrypted file.

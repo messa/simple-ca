@@ -26,7 +26,7 @@ class SimpleCA:
         x.run(org=org, cn=cn)
         return CKP(cert=x.cert, key=x.key, key_password=x.key_password)
 
-    def create_server_cert(self, ca_cert, ca_key, ca_key_password, cn, org, dc=None):
+    def create_server_cert(self, ca_cert, ca_key, ca_key_password, cn, org, dc=None, san_dns=None):
         '''
         Keyword arguments:
         - ca_cert: use value ca.cert from ca obtained from init_ca()
@@ -35,8 +35,9 @@ class SimpleCA:
         - cn: Common Name, most likely server hostname
         - org: Organization Name, most likely should be the same as CA org
         - dc: Domain Component
+        - san_dns: list of DNS names for Subject Alternative Name (SAN) extension (for SNI support)
         '''
         x = CreateServerCert(
             self.openssl_cli, ca_cert=ca_cert, ca_key=ca_key, ca_key_password=ca_key_password)
-        x.run(cn=cn, org=org, dc=dc)
+        x.run(cn=cn, org=org, dc=dc, san_dns=san_dns)
         return CKP(cert=x.cert, key=x.key, key_password=x.key_password)

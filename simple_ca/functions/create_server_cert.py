@@ -21,7 +21,7 @@ class CreateServerCert:
         self.ca_key = ca_key
         self.ca_key_password = ca_key_password
 
-    def run(self, cn, org, dc):
+    def run(self, cn, org, dc, san_dns=None):
         with TemporaryDirectory(prefix='simple_ca.') as temp_dir:
             temp_dir = Path(temp_dir)
             self._conf_file = temp_dir / 'openssl.conf'
@@ -38,7 +38,7 @@ class CreateServerCert:
             self._key_password_file = temp_dir / 'server.key.password'
             self._csr_file = temp_dir / 'server.csr'
             self._cert_file = temp_dir / 'server.cert'
-            self._create_cfg()
+            self._create_cfg(san_dns=san_dns)
             self._create_key()
             self._create_csr(cn=cn, org=org, dc=dc)
             self._create_cert()
@@ -46,8 +46,12 @@ class CreateServerCert:
             self.key = self._key_file.open().read()
             self.cert = self._cert_file.open().read()
 
-    def _create_cfg(self):
+    def _create_cfg(self, san_dns=None):
         assert not self._conf_file.is_file()
+        san_line = ''
+        if san_dns:
+            san_entries = ', '.join('DNS:{}'.format(name) for name in san_dns)
+            san_line = '\nsubjectAltName          = {}'.format(san_entries)
         with self._conf_file.open('w') as f:
             f.write(dedent('''
                 [req]
@@ -68,7 +72,7 @@ class CreateServerCert:
                 authorityKeyIdentifier  = keyid,issuer:always
                 keyUsage                = critical, nonRepudiation, digitalSignature, keyEncipherment
                 extendedKeyUsage        = serverAuth, clientAuth
-            '''))
+            ''') + san_line)
 
     def _create_key(self):
         assert not self._key_file.is_file()
