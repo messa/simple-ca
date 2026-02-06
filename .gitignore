@@ -2,3 +2,5 @@
 local
 *.egg-info
 venv
+__pycache__
+*.pyc
