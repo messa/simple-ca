@@ -53,6 +53,8 @@ def test_create_server_cert_with_san_dns():
         ['openssl', 'x509', '-noout', '-text'],
         input=sc.cert.encode()).decode()
     assert 'DNS:localhost' in out
+    assert '    DNS:localhost\n' in out
+    assert 'DNS:DNS:localhost' not in out
 
 
 def test_create_server_cert_with_san_hostname():
@@ -69,4 +71,4 @@ def test_create_server_cert_with_san_hostname():
         input=sc.cert.encode()).decode()
     assert 'DNS:example.com' in out
     assert 'DNS:*.example.com' in out
-    assert '    DNS:example.com, DNS:*.example.com' in out
+    assert '    DNS:example.com, DNS:*.example.com\n' in out
