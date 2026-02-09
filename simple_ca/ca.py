@@ -15,6 +15,18 @@ class CA (CKP):
     or construct directly from existing PEM data.
     '''
 
+    def __new__(cls, cert, key, key_password):
+        '''
+        Construct a CA from existing PEM data.
+
+        :param cert: CA certificate (PEM-encoded string)
+        :param key: CA private key (PEM-encoded string)
+        :param key_password: password to the CA private key
+        '''
+        # Using __new__ instead of __init__ because namedtuple
+        # instances are created in __new__, not __init__.
+        return super().__new__(cls, cert=cert, key=key, key_password=key_password)
+
     @classmethod
     def init_ca(cls, org, cn='CA'):
         '''
