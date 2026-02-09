@@ -49,6 +49,8 @@ class CreateServerCert:
 
     @staticmethod
     def _san_entry(name):
+        if name.startswith(('DNS:', 'IP:')):
+            return name
         try:
             ipaddress.ip_address(name)
             return 'IP:' + name
