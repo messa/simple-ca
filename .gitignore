@@ -1,6 +1,7 @@
 .cache
 local
 *.egg-info
-venv
 __pycache__
 *.pyc
+venv
+.venv
