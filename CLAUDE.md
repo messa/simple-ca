@@ -26,12 +26,15 @@ venv/bin/python3 -m pytest -vs tests/test_simple_ca.py::test_create_server_cert
 
 ## Architecture
 
-The public API is a single class `SimpleCA` (in `simple_ca/simple_ca.py`, exported from `__init__.py`). It has two methods:
+### Public API
 
-- `init_ca()` — creates a CA certificate + encrypted key pair
-- `create_server_cert()` — creates a server certificate signed by the CA
+- **`CA`** class (in `simple_ca/ca.py`) — the recommended API. Inherits from `CKP` namedtuple.
+  - `CA.init_ca(org, cn)` — class method, creates a new CA and returns a `CA` instance
+  - `ca.create_server_cert(cn, org, dc, san)` — creates a server certificate signed by this CA, returns `CKP`
+- **`SimpleCA`** class (in `simple_ca/simple_ca.py`) — legacy API, delegates to `CA`
+- **`CKP`** namedtuple (in `simple_ca/types.py`) — holds `cert`, `key`, and `key_password` (all strings, PEM-encoded)
 
-Both return a `CKP` namedtuple with `cert`, `key`, and `key_password` fields (all strings, PEM-encoded).
+All three are exported from `simple_ca/__init__.py`.
 
 ### Internal structure
 

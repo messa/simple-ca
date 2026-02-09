@@ -53,7 +53,7 @@ def test_create_server_cert_using_ca_api():
     assert isinstance(sc.key, str)
     assert isinstance(sc.key_password, str)
     assert '-----BEGIN CERTIFICATE-----' in sc.cert
-    assert '-----BEGIN RSA PRIVATE KEY-----' in sc.key
+    assert re.match(r'-----BEGIN (ENCRYPTED|RSA) PRIVATE KEY-----', sc.key)
     assert len(sc.key_password) > 10
 
 
