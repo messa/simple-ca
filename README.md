@@ -36,6 +36,13 @@ sc = ca.create_server_cert(cn='localhost', org='ACME', dc='example')
 # sc.key_password is password to the key, keep this private
 ```
 
+You can also reconstruct a `CA` object from previously saved PEM data:
+
+```python
+ca = CA(cert=saved_cert, key=saved_key, key_password=saved_key_password)
+sc = ca.create_server_cert(cn='localhost', org='ACME')
+```
+
 ### Legacy API
 
 ```python
