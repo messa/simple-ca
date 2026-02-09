@@ -54,3 +54,4 @@ def test_create_server_cert_with_san():
         input=sc.cert.encode()).decode()
     assert 'DNS:example.com' in out
     assert 'DNS:*.example.com' in out
+    assert '    DNS:example.com, DNS:*.example.com' in out
