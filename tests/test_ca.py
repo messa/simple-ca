@@ -11,6 +11,7 @@ from simple_ca import CA, CKP
 def _check_pem_cert(cert):
     assert isinstance(cert, str)
     assert '-----BEGIN CERTIFICATE-----' in cert
+    assert '-----END CERTIFICATE-----' in cert
 
 
 def _check_pem_key(key):
@@ -35,6 +36,11 @@ def _openssl_x509_text(cert_pem):
 def test_init_ca():
     ca = CA.init_ca(org='ACME')
     _check_ckp(ca)
+    ca_lines = [line for line in ca.cert.splitlines() if '---' in line]
+    assert ca_lines == [
+        '-----BEGIN CERTIFICATE-----',
+        '-----END CERTIFICATE-----',
+    ]
 
 
 def test_init_ca_custom_cn():
@@ -74,6 +80,11 @@ def test_create_server_cert():
     ca = CA.init_ca(org='ACME')
     sc = ca.create_server_cert(cn='localhost', org='ACME')
     _check_ckp(sc)
+    sc_lines = [line for line in sc.cert.splitlines() if '---' in line]
+    assert sc_lines == [
+        '-----BEGIN CERTIFICATE-----',
+        '-----END CERTIFICATE-----',
+    ]
 
 
 def test_create_server_cert_with_dc():
