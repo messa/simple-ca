@@ -54,6 +54,10 @@ Each function class works by writing openssl config files and key material to a 
 
 - Prefer `from A import B` style imports instead of `import A`.
 
+## Testing
+
+- In pytest tests, use the `tmp_path` fixture for temporary files and directories.
+
 ## Packaging
 
 Uses `pyproject.toml` with hatchling build backend. Managed with `uv`. No runtime dependencies beyond Python stdlib and the `openssl` system command. Dev dependencies: `pytest`, `ruff`.
