@@ -1,7 +1,7 @@
 Simple CA
 =========
 
-__Python OpenSSL wrapper__ that can create __your own certificate authority (CA)__ and create server certficates with it.
+__Python OpenSSL wrapper__ you can use to create __your own certificate authority (CA)__ and create server certificates with it.
 
 Use cases:
 
@@ -46,6 +46,20 @@ sc = ca.create_server_cert(cn='localhost', org='ACME')
 I recommend to store the `cert` and `key` in plain text files and `key_password` in encrypted file (using GPG, [AGE](https://age-encryption.org) etc.).
 
 
+### Intermediate CA
+
+You can create an intermediate CA for additional security — the root CA key can be kept offline:
+
+```python
+root_ca = CA.init_ca(org='ACME', cn='Root CA')
+intermediate_ca = root_ca.create_intermediate_ca(org='ACME', cn='Intermediate CA')
+
+sc = intermediate_ca.create_server_cert(cn='localhost', org='ACME', san=['localhost'])
+# sc.cert_chain contains the full certificate chain (server cert + intermediate cert)
+# Use sc.cert_chain (not sc.cert) when configuring TLS servers
+```
+
+
 ### Legacy API
 
 ```python
@@ -56,6 +70,18 @@ sc = s.create_server_cert(
     ca_cert=ca.cert, ca_key=ca.key, ca_key_password=ca.key_password,
     cn='localhost', org='ACME', dc='example')
 ```
+
+
+Certificate invalidation
+------------------------
+
+This project is designed primarily for **internal infrastructures** — database clusters (MongoDB, PostgreSQL, CockroachDB…) using TLS for inter-node and client-server communication, internal microservices, VPNs, and similar setups where all clients and servers are under your control via configuration management (Ansible, Puppet, Kubernetes operators, etc.).
+
+In this scenario, traditional certificate revocation mechanisms (CRL, OCSP) are usually unnecessary. Since you control all endpoints, the simplest and most reliable invalidation strategy is **full regeneration and redeployment**.
+
+This approach avoids the complexity of running CRL distribution points or OCSP responders, and eliminates the window of vulnerability inherent in periodic CRL refresh. It works well when certificate deployment is already automated as part of your infrastructure provisioning.
+
+For additional defense in depth, consider using **short-lived certificates** (hours to days) with automated renewal, so that even without explicit revocation, a compromised certificate becomes useless quickly.
 
 
 Similar projects

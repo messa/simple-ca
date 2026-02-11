@@ -1,4 +1,3 @@
-from ipaddress import ip_address
 from logging import getLogger
 from pathlib import Path
 from time import time_ns
@@ -9,8 +8,10 @@ from textwrap import dedent
 logger = getLogger(__name__)
 
 
-class CreateServerCert:
+class CreateIntermediateCA:
     """
+    Create an intermediate CA certificate signed by a parent CA.
+
     This class API may change (non-backward-compatible) between minor versions.
     """
 
@@ -22,73 +23,52 @@ class CreateServerCert:
         self.ca_key_password = ca_key_password
         self.ca_verify_chain = ca_verify_chain
 
-    def run(self, cn, org, dc, san=None):
+    def run(self, org, cn):
         with TemporaryDirectory(prefix='simple_ca.') as temp_dir:
             temp_dir = Path(temp_dir)
             self._conf_file = temp_dir / 'openssl.conf'
             self._ca_key_file = temp_dir / 'ca.key'
             self._ca_key_password_file = temp_dir / 'ca.key.password'
             self._ca_cert_file = temp_dir / 'ca.cert'
-            with self._ca_key_file.open('w') as f:
-                f.write(self.ca_key)
-            with self._ca_key_password_file.open('w') as f:
-                f.write(self.ca_key_password)
-            with self._ca_cert_file.open('w') as f:
-                f.write(self.ca_cert)
+            self._ca_key_file.write_text(self.ca_key)
+            self._ca_key_password_file.write_text(self.ca_key_password)
+            self._ca_cert_file.write_text(self.ca_cert)
             if self.ca_verify_chain:
                 self._ca_verify_file = temp_dir / 'ca_bundle.cert'
                 self._ca_verify_file.write_text(self.ca_verify_chain)
             else:
                 self._ca_verify_file = self._ca_cert_file
-            self._key_file = temp_dir / 'server.key'
-            self._key_password_file = temp_dir / 'server.key.password'
-            self._csr_file = temp_dir / 'server.csr'
-            self._cert_file = temp_dir / 'server.cert'
-            self._create_cfg(san=san)
+            self._key_file = temp_dir / 'intermediate.key'
+            self._key_password_file = temp_dir / 'intermediate.key.password'
+            self._csr_file = temp_dir / 'intermediate.csr'
+            self._cert_file = temp_dir / 'intermediate.cert'
+            self._create_cfg()
             self._create_key()
-            self._create_csr(cn=cn, org=org, dc=dc)
+            self._create_csr(org=org, cn=cn)
             self._create_cert()
             assert self.key_password
-            self.key = self._key_file.open().read()
-            self.cert = self._cert_file.open().read()
+            self.key = self._key_file.read_text()
+            self.cert = self._cert_file.read_text()
 
-    @staticmethod
-    def _san_entry(name):
-        if name.startswith(('DNS:', 'IP:')):
-            return name
-        try:
-            ip_address(name)
-            return 'IP:' + name
-        except ValueError:
-            return 'DNS:' + name
-
-    def _create_cfg(self, san=None):
+    def _create_cfg(self):
         assert not self._conf_file.is_file()
-        cfg = dedent("""
-            [req]
-            default_bits        = 4096
-            distinguished_name  = req_distinguished_name
-            string_mask         = utf8only
-            default_md          = sha256
-            [req_distinguished_name]
-            0.organizationName              = Organization Name
-            organizationalUnitName          = Organizational Unit Name
-            0.DC                            = Domain Component
-            commonName                      = Common Name
-            [v3_server_client]
-            basicConstraints        = CA:FALSE
-            nsCertType              = server, client
-            nsComment               = "OpenSSL Generated Server Certificate"
-            subjectKeyIdentifier    = hash
-            authorityKeyIdentifier  = keyid,issuer:always
-            keyUsage                = critical, nonRepudiation, digitalSignature, keyEncipherment
-            extendedKeyUsage        = serverAuth, clientAuth
-        """)
-        if san:
-            entries = ','.join(self._san_entry(s) for s in san)
-            cfg = cfg.rstrip() + '\nsubjectAltName          = ' + entries + '\n'
-        with self._conf_file.open('w') as f:
-            f.write(cfg)
+        self._conf_file.write_text(
+            dedent("""
+                [req]
+                default_bits        = 4096
+                distinguished_name  = req_distinguished_name
+                string_mask         = utf8only
+                default_md          = sha256
+                [req_distinguished_name]
+                0.organizationName     = Organization Name
+                commonName             = Common Name
+                [v3_intermediate_ca]
+                subjectKeyIdentifier   = hash
+                authorityKeyIdentifier = keyid:always,issuer
+                basicConstraints       = critical, CA:true, pathlen:0
+                keyUsage               = critical, digitalSignature, cRLSign, keyCertSign
+            """)
+        )
 
     def _create_key(self):
         assert not self._key_file.is_file()
@@ -96,20 +76,12 @@ class CreateServerCert:
         out = self.openssl_cli('rand', '-base64', 15)
         self.key_password = out.strip()
         assert len(self.key_password) == 15 / 3 * 4
-        with self._key_password_file.open('w') as f:
-            f.write(self.key_password)
+        self._key_password_file.write_text(self.key_password)
         self.openssl_cli(
             'genrsa', '-aes256', '-out', self._key_file, '-passout', 'file:' + str(self._key_password_file), 4096
         )
 
-    def _get_subj(self, cn, org, dc):
-        s = '/O=' + org
-        s += '/CN=' + cn
-        if dc:
-            s += '/DC=' + dc
-        return s
-
-    def _create_csr(self, cn, org, dc):
+    def _create_csr(self, org, cn):
         assert self._conf_file.is_file()
         assert self._key_file.is_file()
         assert self._key_password_file.is_file()
@@ -126,7 +98,7 @@ class CreateServerCert:
             '-out',
             self._csr_file,
             '-subj',
-            self._get_subj(cn=cn, org=org, dc=dc),
+            '/O={org}/CN={cn}'.format(org=org, cn=cn),
         )
         assert self._csr_file.is_file()
 
@@ -157,18 +129,18 @@ class CreateServerCert:
             '-out',
             self._cert_file,
             '-extensions',
-            'v3_server_client',
+            'v3_intermediate_ca',
         )
         assert self._cert_file.is_file()
-        # verify CA certificate
+        # verify intermediate CA certificate
         out = self.openssl_cli('x509', '-noout', '-text', '-in', self._cert_file)
         for line in out.splitlines():
-            self.logger.debug('Generated server cert: %s', line.rstrip())
-        assert 'CA:FALSE' in out
-        assert 'CA:TRUE' not in out
-        assert 'SSL Client' in out
-        assert 'SSL Server' in out
-        assert 'Certificate Sign' not in out
-        assert 'CRL Sign' not in out
+            self.logger.debug('Generated intermediate CA cert: %s', line.rstrip())
+        assert 'CA:TRUE' in out
+        assert 'CA:FALSE' not in out
+        assert 'Certificate Sign' in out
+        assert 'CRL Sign' in out
+        assert 'SSL Client' not in out
+        assert 'SSL Server' not in out
         out = self.openssl_cli('verify', '-CAfile', self._ca_verify_file, self._cert_file)
         assert 'OK' in out

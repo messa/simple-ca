@@ -35,10 +35,11 @@ make lint-fix
 ### Public API
 
 - **`CA`** class (in `simple_ca/ca.py`) — the recommended API. Inherits from `CKP` namedtuple.
-  - `CA.init_ca(org, cn)` — class method, creates a new CA and returns a `CA` instance
+  - `CA.init_ca(org, cn)` — class method, creates a new root CA and returns a `CA` instance
+  - `ca.create_intermediate_ca(org, cn)` — creates an intermediate CA signed by this CA, returns a new `CA` instance
   - `ca.create_server_cert(cn, org, dc, san)` — creates a server certificate signed by this CA, returns `CKP`
 - **`SimpleCA`** class (in `simple_ca/simple_ca.py`) — legacy API, delegates to `CA`
-- **`CKP`** namedtuple (in `simple_ca/types.py`) — holds `cert`, `key`, and `key_password` (all strings, PEM-encoded)
+- **`CKP`** namedtuple (in `simple_ca/types.py`) — holds `cert`, `key`, `key_password`, and `cert_chain` (all strings, PEM-encoded; `cert_chain` is optional and contains the full certificate chain for TLS)
 
 All three are exported from `simple_ca/__init__.py`.
 
@@ -46,6 +47,7 @@ All three are exported from `simple_ca/__init__.py`.
 
 - `simple_ca/openssl_cli.py` — `OpenSSLCLI` class: thin wrapper that calls the `openssl` binary via subprocess
 - `simple_ca/functions/init_ca.py` — `InitCA`: creates CA key+cert using temp directory with openssl config files
+- `simple_ca/functions/create_intermediate_ca.py` — `CreateIntermediateCA`: creates intermediate CA key, CSR, and cert signed by parent CA (with `CA:true, pathlen:0` extensions)
 - `simple_ca/functions/create_server_cert.py` — `CreateServerCert`: creates server key, CSR, and cert signed by CA; supports SAN (Subject Alternative Names) for DNS names and IP addresses
 
 Each function class works by writing openssl config files and key material to a `TemporaryDirectory`, invoking openssl commands, then reading back the results. The temp directory is cleaned up automatically.

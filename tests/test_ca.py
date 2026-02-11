@@ -63,10 +63,11 @@ def test_ca_is_instance_of_ckp():
 
 def test_ca_tuple_unpacking():
     ca = CA.init_ca(org='ACME')
-    cert, key, key_password = ca
+    cert, key, key_password, cert_chain = ca
     assert cert == ca.cert
     assert key == ca.key
     assert key_password == ca.key_password
+    assert cert_chain == ca.cert_chain
 
 
 def test_ca_indexing():
@@ -74,6 +75,7 @@ def test_ca_indexing():
     assert ca[0] == ca.cert
     assert ca[1] == ca.key
     assert ca[2] == ca.key_password
+    assert ca[3] == ca.cert_chain
 
 
 def test_create_server_cert():
@@ -174,3 +176,116 @@ def test_construct_ca_from_existing_pem():
     ca2 = CA(cert=ca1.cert, key=ca1.key, key_password=ca1.key_password)
     sc = ca2.create_server_cert(cn='localhost', org='ACME')
     _check_ckp(sc)
+
+
+def test_root_ca_cert_chain_is_none():
+    ca = CA.init_ca(org='ACME')
+    assert ca.cert_chain is None
+
+
+def test_server_cert_has_cert_chain():
+    ca = CA.init_ca(org='ACME')
+    sc = ca.create_server_cert(cn='localhost', org='ACME')
+    assert sc.cert_chain is not None
+    assert sc.cert_chain == sc.cert
+
+
+def test_create_intermediate_ca():
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME', cn='Intermediate CA')
+    _check_ckp(inter)
+    assert isinstance(inter, CA)
+
+
+def test_intermediate_ca_is_ca_cert():
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME')
+    out = _openssl_x509_text(inter.cert)
+    assert 'CA:TRUE' in out
+    assert 'Certificate Sign' in out
+    assert 'CRL Sign' in out
+
+
+def test_intermediate_ca_has_pathlen():
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME')
+    out = _openssl_x509_text(inter.cert)
+    assert 'pathlen:0' in out
+
+
+def test_intermediate_ca_custom_cn():
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME', cn='My Intermediate')
+    out = _openssl_x509_text(inter.cert)
+    assert 'My Intermediate' in out
+
+
+def test_intermediate_ca_verified_by_root(tmp_path):
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME')
+    (tmp_path / 'root.cert').write_text(root.cert)
+    (tmp_path / 'inter.cert').write_text(inter.cert)
+    result = subprocess.run(
+        ['openssl', 'verify', '-CAfile', str(tmp_path / 'root.cert'), str(tmp_path / 'inter.cert')],
+        capture_output=True,
+    )
+    assert result.returncode == 0
+
+
+def test_intermediate_ca_cert_chain():
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME')
+    assert inter.cert_chain is not None
+    assert inter.cert in inter.cert_chain
+    assert root.cert not in inter.cert_chain
+
+
+def test_server_cert_from_intermediate():
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME')
+    sc = inter.create_server_cert(cn='localhost', org='ACME')
+    _check_ckp(sc)
+    out = _openssl_x509_text(sc.cert)
+    assert 'CA:FALSE' in out
+
+
+def test_server_cert_from_intermediate_cert_chain():
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME')
+    sc = inter.create_server_cert(cn='localhost', org='ACME')
+    # cert_chain should contain both server cert and intermediate cert
+    assert sc.cert in sc.cert_chain
+    assert inter.cert in sc.cert_chain
+    # but not the root cert
+    assert root.cert not in sc.cert_chain
+
+
+def test_server_cert_from_intermediate_verified(tmp_path):
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME')
+    sc = inter.create_server_cert(cn='localhost', org='ACME')
+    (tmp_path / 'root.cert').write_text(root.cert)
+    (tmp_path / 'inter.cert').write_text(inter.cert)
+    (tmp_path / 'server.cert').write_text(sc.cert)
+    result = subprocess.run(
+        [
+            'openssl',
+            'verify',
+            '-CAfile',
+            str(tmp_path / 'root.cert'),
+            '-untrusted',
+            str(tmp_path / 'inter.cert'),
+            str(tmp_path / 'server.cert'),
+        ],
+        capture_output=True,
+    )
+    assert result.returncode == 0
+
+
+def test_server_cert_from_intermediate_with_san():
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME')
+    sc = inter.create_server_cert(cn='localhost', org='ACME', san=['localhost', '127.0.0.1'])
+    out = _openssl_x509_text(sc.cert)
+    assert 'DNS:localhost' in out
+    assert 'IP Address:127.0.0.1' in out
