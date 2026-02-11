@@ -3,6 +3,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from textwrap import dedent
 
+from ..types import DEFAULT_VALIDITY_DAYS
+from .helpers import extract_serial
+
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +19,7 @@ class InitCA:
         self.logger = logger
         self.openssl_cli = openssl_cli
 
-    def run(self, org, cn):
+    def run(self, org, cn, days=DEFAULT_VALIDITY_DAYS):
         with TemporaryDirectory(prefix='simple_ca.') as temp_dir:
             temp_dir = Path(temp_dir)
             self._conf_file = temp_dir / 'openssl-ca.conf'
@@ -25,10 +28,11 @@ class InitCA:
             self._cert_file = temp_dir / 'ca.cert'
             self._create_cfg()
             self._create_key()
-            self._create_cert(org=org, cn=cn)
+            self._create_cert(org=org, cn=cn, days=days)
             assert self.key_password
-            self.key = self._key_file.open().read()
-            self.cert = self._cert_file.open().read()
+            self.key = self._key_file.read_text()
+            self.cert = self._cert_file.read_text()
+            self.serial = extract_serial(self.openssl_cli, self._cert_file)
 
     def _create_cfg(self):
         assert not self._conf_file.is_file()
@@ -65,7 +69,7 @@ class InitCA:
             'genrsa', '-aes256', '-out', self._key_file, '-passout', 'file:' + str(self._key_password_file), 4096
         )
 
-    def _create_cert(self, org, cn):
+    def _create_cert(self, org, cn, days):
         assert self._conf_file.is_file()
         assert self._key_file.is_file()
         assert self._key_password_file.is_file()
@@ -79,7 +83,7 @@ class InitCA:
             '-new',
             '-x509',
             '-days',
-            10000,
+            days,
             '-key',
             self._key_file,
             '-passin',

@@ -4,7 +4,8 @@ TLS integration tests — verify that generated certificates work in real TLS co
 Uses asyncio TCP server/client with ssl.SSLContext to test end-to-end TLS.
 """
 
-from asyncio import CancelledError, Event, create_task, open_connection, start_server
+from asyncio import CancelledError, Event, create_subprocess_exec, create_task, open_connection, start_server
+from asyncio.subprocess import PIPE
 from ssl import SSLCertVerificationError, SSLContext, PROTOCOL_TLS_SERVER, create_default_context
 
 from pytest import mark, raises
@@ -27,6 +28,32 @@ async def _run_tls_echo_server(server_ctx, host, port, ready_event):
     async def handle_client(reader, writer):
         data = await reader.read(4096)
         writer.write(data)
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+
+    server = await start_server(handle_client, host, port, ssl=server_ctx)
+    actual_port = server.sockets[0].getsockname()[1]
+    ready_event.port = actual_port
+    ready_event.set()
+    async with server:
+        await server.serve_forever()
+
+
+async def _run_tls_http_server(server_ctx, host, port, ready_event):
+    """Minimal HTTPS server — responds with 'Hello, world!\\n' to any request."""
+
+    async def handle_client(reader, writer):
+        # Read HTTP request headers until blank line
+        while True:
+            line = await reader.readline()
+            if line in (b'\r\n', b'\n', b''):
+                break
+        body = b'Hello, world!\n'
+        response = (
+            b'HTTP/1.1 200 OK\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body
+        )
+        writer.write(response)
         await writer.drain()
         writer.close()
         await writer.wait_closed()
@@ -115,6 +142,87 @@ async def test_tls_san_ip(tmp_path):
 
 
 @mark.asyncio
+async def test_tls_intermediate_ca(tmp_path):
+    """TLS with intermediate CA — server must send fullchain (cert_chain)."""
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME', cn='Intermediate CA')
+    sc = inter.create_server_cert(cn='localhost', org='ACME', san=['localhost'])
+
+    # Client trusts only root CA
+    root_cert_path = tmp_path / 'root.pem'
+    root_cert_path.write_text(root.cert)
+
+    # Server uses fullchain (server cert + intermediate cert)
+    fullchain_path = tmp_path / 'fullchain.pem'
+    fullchain_path.write_text(sc.cert_chain)
+    server_key_path = tmp_path / 'server.key'
+    server_key_path.write_text(sc.key)
+
+    server_ctx = SSLContext(PROTOCOL_TLS_SERVER)
+    server_ctx.load_cert_chain(fullchain_path, server_key_path, password=sc.key_password)
+
+    client_ctx = create_default_context(cafile=str(root_cert_path))
+
+    ready_event = Event()
+    server_task = create_task(_run_tls_echo_server(server_ctx, '127.0.0.1', 0, ready_event))
+
+    try:
+        await ready_event.wait()
+        port = ready_event.port
+
+        reader, writer = await open_connection('127.0.0.1', port, ssl=client_ctx, server_hostname='localhost')
+        writer.write(b'hello intermediate TLS')
+        await writer.drain()
+
+        data = await reader.read(4096)
+        assert data == b'hello intermediate TLS'
+
+        writer.close()
+        await writer.wait_closed()
+    finally:
+        server_task.cancel()
+        try:
+            await server_task
+        except CancelledError:
+            pass
+
+
+@mark.asyncio
+async def test_tls_intermediate_ca_without_fullchain_rejected(tmp_path):
+    """Without fullchain, client cannot verify the server cert signed by intermediate CA."""
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME', cn='Intermediate CA')
+    sc = inter.create_server_cert(cn='localhost', org='ACME', san=['localhost'])
+
+    root_cert_path = tmp_path / 'root.pem'
+    root_cert_path.write_text(root.cert)
+
+    # Server sends only server cert, NOT fullchain
+    server_cert_path, server_key_path = _write_ckp(tmp_path, 'server', sc)
+
+    server_ctx = SSLContext(PROTOCOL_TLS_SERVER)
+    server_ctx.load_cert_chain(server_cert_path, server_key_path, password=sc.key_password)
+
+    client_ctx = create_default_context(cafile=str(root_cert_path))
+
+    ready_event = Event()
+    server_task = create_task(_run_tls_echo_server(server_ctx, '127.0.0.1', 0, ready_event))
+
+    try:
+        await ready_event.wait()
+        port = ready_event.port
+
+        with raises(SSLCertVerificationError):
+            reader, writer = await open_connection('127.0.0.1', port, ssl=client_ctx, server_hostname='localhost')
+    finally:
+        server_task.cancel()
+        try:
+            await server_task
+        except CancelledError:
+            pass
+
+
+@mark.asyncio
 async def test_tls_wrong_ca_rejected(tmp_path):
     ca1 = CA.init_ca(org='ACME-1')
     ca2 = CA.init_ca(org='ACME-2')
@@ -138,6 +246,89 @@ async def test_tls_wrong_ca_rejected(tmp_path):
 
         with raises(SSLCertVerificationError):
             reader, writer = await open_connection('127.0.0.1', port, ssl=client_ctx, server_hostname='localhost')
+    finally:
+        server_task.cancel()
+        try:
+            await server_task
+        except CancelledError:
+            pass
+
+
+@mark.asyncio
+async def test_https_curl(tmp_path):
+    """HTTPS test using curl as the client — verifies certificates work with real tools."""
+    ca = CA.init_ca(org='ACME')
+    sc = ca.create_server_cert(cn='localhost', org='ACME', san=['localhost'])
+
+    ca_cert_path = tmp_path / 'ca.pem'
+    ca_cert_path.write_text(ca.cert)
+    server_cert_path, server_key_path = _write_ckp(tmp_path, 'server', sc)
+
+    server_ctx = SSLContext(PROTOCOL_TLS_SERVER)
+    server_ctx.load_cert_chain(server_cert_path, server_key_path, password=sc.key_password)
+
+    ready_event = Event()
+    server_task = create_task(_run_tls_http_server(server_ctx, '127.0.0.1', 0, ready_event))
+
+    try:
+        await ready_event.wait()
+        port = ready_event.port
+
+        proc = await create_subprocess_exec(
+            'curl',
+            '--cacert',
+            str(ca_cert_path),
+            f'https://localhost:{port}/',
+            stdout=PIPE,
+            stderr=PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        assert proc.returncode == 0, f'curl failed: {stderr.decode()}'
+        assert stdout == b'Hello, world!\n'
+    finally:
+        server_task.cancel()
+        try:
+            await server_task
+        except CancelledError:
+            pass
+
+
+@mark.asyncio
+async def test_https_curl_intermediate_ca(tmp_path):
+    """HTTPS + curl with intermediate CA — server sends fullchain, curl trusts only root."""
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME', cn='Intermediate CA')
+    sc = inter.create_server_cert(cn='localhost', org='ACME', san=['localhost'])
+
+    root_cert_path = tmp_path / 'root.pem'
+    root_cert_path.write_text(root.cert)
+
+    fullchain_path = tmp_path / 'fullchain.pem'
+    fullchain_path.write_text(sc.cert_chain)
+    server_key_path = tmp_path / 'server.key'
+    server_key_path.write_text(sc.key)
+
+    server_ctx = SSLContext(PROTOCOL_TLS_SERVER)
+    server_ctx.load_cert_chain(fullchain_path, server_key_path, password=sc.key_password)
+
+    ready_event = Event()
+    server_task = create_task(_run_tls_http_server(server_ctx, '127.0.0.1', 0, ready_event))
+
+    try:
+        await ready_event.wait()
+        port = ready_event.port
+
+        proc = await create_subprocess_exec(
+            'curl',
+            '--cacert',
+            str(root_cert_path),
+            f'https://localhost:{port}/',
+            stdout=PIPE,
+            stderr=PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        assert proc.returncode == 0, f'curl failed: {stderr.decode()}'
+        assert stdout == b'Hello, world!\n'
     finally:
         server_task.cancel()
         try:

@@ -23,6 +23,7 @@ requires-python = ">=3.9"
 dev = [
     "pytest",
     "pytest-asyncio>=1.2.0",
+    "pytest-xdist>=3.8.0",
     "ruff",
 ]
 

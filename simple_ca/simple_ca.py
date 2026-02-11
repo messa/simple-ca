@@ -1,7 +1,7 @@
 import logging
 
 from .ca import CA
-from .types import CKP
+from .types import CertKeyPair, DEFAULT_VALIDITY_DAYS
 from .functions.init_ca import InitCA
 from .functions.create_server_cert import CreateServerCert
 from .openssl_cli import OpenSSLCLI
@@ -19,12 +19,23 @@ class SimpleCA:
         self.logger = logger
         self.openssl_cli = OpenSSLCLI()
 
-    def init_ca(self, org, cn='CA'):
+    def init_ca(self, org, cn='CA', *, days=DEFAULT_VALIDITY_DAYS):
         x = InitCA(self.openssl_cli)
-        x.run(org=org, cn=cn)
-        return CA(cert=x.cert, key=x.key, key_password=x.key_password, _openssl_cli=self.openssl_cli)
+        x.run(org=org, cn=cn, days=days)
+        return CA(cert=x.cert, key=x.key, key_password=x.key_password, serial=x.serial, _openssl_cli=self.openssl_cli)
 
-    def create_server_cert(self, ca_cert, ca_key, ca_key_password, cn, org, dc=None, san=None):
+    def create_server_cert(
+        self,
+        ca_cert,
+        ca_key,
+        ca_key_password,
+        cn,
+        org,
+        dc=None,
+        san=None,
+        *,
+        days=DEFAULT_VALIDITY_DAYS,
+    ):
         """
         Keyword arguments:
         - ca_cert: use value ca.cert from ca obtained from init_ca()
@@ -34,7 +45,8 @@ class SimpleCA:
         - org: Organization Name, most likely should be the same as CA org
         - dc: Domain Component
         - san: list of Subject Alternative Names (DNS names or IP addresses)
+        - days: certificate validity in days (keyword-only, default: DEFAULT_VALIDITY_DAYS)
         """
         x = CreateServerCert(self.openssl_cli, ca_cert=ca_cert, ca_key=ca_key, ca_key_password=ca_key_password)
-        x.run(cn=cn, org=org, dc=dc, san=san)
-        return CKP(cert=x.cert, key=x.key, key_password=x.key_password)
+        x.run(cn=cn, org=org, dc=dc, san=san, days=days)
+        return CertKeyPair(cert=x.cert, key=x.key, key_password=x.key_password, serial=x.serial)

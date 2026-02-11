@@ -1,7 +1,7 @@
 Simple CA
 =========
 
-__Python OpenSSL wrapper__ that can create __your own certificate authority (CA)__ and create server certficates with it.
+__Python OpenSSL wrapper__ you can use to create __your own certificate authority (CA)__ and create server certificates with it.
 
 Use cases:
 
@@ -21,7 +21,7 @@ Usage
 -----
 
 ```python
-from simple_ca import CA
+from simple_ca import CA  # CA is an alias for RootCA
 
 ca = CA.init_ca(org='ACME')
 # now you have created your own CA
@@ -34,6 +34,7 @@ sc = ca.create_server_cert(cn='localhost', org='ACME', dc='example')
 # sc.cert is the SSL certficate
 # sc.key is key to that certificate (needed on the server)
 # sc.key_password is password to the key, keep this private
+# sc.serial is the certificate serial number (hex string)
 ```
 
 You can also reconstruct a `CA` object from previously saved PEM data:
@@ -46,6 +47,36 @@ sc = ca.create_server_cert(cn='localhost', org='ACME')
 I recommend to store the `cert` and `key` in plain text files and `key_password` in encrypted file (using GPG, [AGE](https://age-encryption.org) etc.).
 
 
+### Intermediate CA
+
+You can create an intermediate CA for additional security — the root CA key can be kept offline:
+
+```python
+root_ca = CA.init_ca(org='ACME', cn='Root CA')
+intermediate_ca = root_ca.create_intermediate_ca(org='ACME', cn='Intermediate CA')
+
+sc = intermediate_ca.create_server_cert(cn='localhost', org='ACME', san=['localhost'])
+# sc.cert_chain contains the full certificate chain (server cert + intermediate cert)
+# Use sc.cert_chain (not sc.cert) when configuring TLS servers
+```
+
+You can reconstruct an `IntermediateCA` from previously saved PEM data:
+
+```python
+from simple_ca import RootCA, IntermediateCA
+
+root = RootCA(cert=root_cert, key=root_key, key_password=root_key_password)
+inter = IntermediateCA(cert=inter_cert, key=inter_key, key_password=inter_key_password, parent=root)
+sc = inter.create_server_cert(cn='localhost', org='ACME', san=['localhost'])
+```
+
+If you don't have the root CA as an object, you can pass the root certificate PEM directly:
+
+```python
+inter = IntermediateCA(cert=inter_cert, key=inter_key, key_password=inter_key_password, parent_ca_cert=root_cert_pem)
+```
+
+
 ### Legacy API
 
 ```python
@@ -55,6 +86,23 @@ ca = s.init_ca(org='ACME')
 sc = s.create_server_cert(
     ca_cert=ca.cert, ca_key=ca.key, ca_key_password=ca.key_password,
     cn='localhost', org='ACME', dc='example')
+```
+
+
+Certificate invalidation
+------------------------
+
+This project is designed primarily for **internal infrastructures** — database clusters (MongoDB, PostgreSQL, CockroachDB…) using TLS for inter-node and client-server communication, internal microservices, VPNs, and similar setups where all clients and servers are under your control via configuration management (Ansible, Puppet, Kubernetes operators, etc.).
+
+In this scenario, traditional certificate revocation mechanisms (CRL, OCSP) are usually unnecessary. Since you control all endpoints, the simplest and most reliable invalidation strategy is **full regeneration and redeployment**.
+
+This approach avoids the complexity of running CRL distribution points or OCSP responders, and eliminates the window of vulnerability inherent in periodic CRL refresh. It works well when certificate deployment is already automated as part of your infrastructure provisioning.
+
+For additional defense in depth, consider using **short-lived certificates** (hours to days) with automated renewal, so that even without explicit revocation, a compromised certificate becomes useless quickly. You can control certificate validity via the `days` parameter:
+
+```python
+ca = CA.init_ca(org='ACME', days=3650)  # CA valid for 10 years
+sc = ca.create_server_cert(cn='localhost', org='ACME', days=30)  # cert valid for 30 days
 ```
 
 
