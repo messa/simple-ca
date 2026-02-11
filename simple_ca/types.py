@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 DEFAULT_VALIDITY_DAYS = 10000

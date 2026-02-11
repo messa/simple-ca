@@ -52,8 +52,8 @@ class CreateServerCert:
             self._create_csr(cn=cn, org=org, dc=dc)
             self._create_cert(days=days)
             assert self.key_password
-            self.key = self._key_file.open().read()
-            self.cert = self._cert_file.open().read()
+            self.key = self._key_file.read_text()
+            self.cert = self._cert_file.read_text()
             self.serial = extract_serial(self.openssl_cli, self._cert_file)
 
     @staticmethod
