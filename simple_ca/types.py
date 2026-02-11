@@ -1,5 +1,14 @@
-from collections import namedtuple
+from dataclasses import dataclass
 
 DEFAULT_VALIDITY_DAYS = 10000
 
-CKP = namedtuple('CKP', ('cert', 'key', 'key_password', 'cert_chain', 'serial'), defaults=(None, None))
+
+@dataclass
+class CertKeyPair:
+    """Certificate, private key and related data."""
+
+    cert: str
+    key: str
+    key_password: str
+    cert_chain: str | None = None
+    serial: str | None = None

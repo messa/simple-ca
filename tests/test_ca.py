@@ -6,7 +6,7 @@ import re
 import subprocess
 from datetime import datetime
 
-from simple_ca import CA, CKP, DEFAULT_VALIDITY_DAYS
+from simple_ca import CA, CertKeyPair, DEFAULT_VALIDITY_DAYS
 
 
 def _check_pem_cert(cert):
@@ -71,30 +71,6 @@ def test_init_ca_is_ca_cert():
     assert 'CA:TRUE' in out
 
 
-def test_ca_is_instance_of_ckp():
-    ca = CA.init_ca(org='ACME')
-    assert isinstance(ca, CKP)
-
-
-def test_ca_tuple_unpacking():
-    ca = CA.init_ca(org='ACME')
-    cert, key, key_password, cert_chain, serial = ca
-    assert cert == ca.cert
-    assert key == ca.key
-    assert key_password == ca.key_password
-    assert cert_chain == ca.cert_chain
-    assert serial == ca.serial
-
-
-def test_ca_indexing():
-    ca = CA.init_ca(org='ACME')
-    assert ca[0] == ca.cert
-    assert ca[1] == ca.key
-    assert ca[2] == ca.key_password
-    assert ca[3] == ca.cert_chain
-    assert ca[4] == ca.serial
-
-
 def test_create_server_cert():
     ca = CA.init_ca(org='ACME')
     sc = ca.create_server_cert(cn='localhost', org='ACME')
@@ -134,10 +110,10 @@ def test_server_cert_verified_by_ca(tmp_path):
     assert result.returncode == 0
 
 
-def test_server_cert_returns_ckp():
+def test_server_cert_returns_cert_key_pair():
     ca = CA.init_ca(org='ACME')
     sc = ca.create_server_cert(cn='localhost', org='ACME')
-    assert isinstance(sc, CKP)
+    assert isinstance(sc, CertKeyPair)
     assert not isinstance(sc, CA)
 
 

@@ -1,17 +1,29 @@
-from .types import CKP, DEFAULT_VALIDITY_DAYS
+from .types import CertKeyPair, DEFAULT_VALIDITY_DAYS
 from .openssl_cli import OpenSSLCLI
 from .functions.init_ca import InitCA
 from .functions.create_intermediate_ca import CreateIntermediateCA
 from .functions.create_server_cert import CreateServerCert
 
 
-class _CABase(CKP):
+class _CABase:
     """
     Base class for Certificate Authorities.
 
     Provides shared functionality for creating intermediate CAs
     and server certificates. Not intended to be instantiated directly.
     """
+
+    def __init__(
+        self, *, cert, key, key_password, cert_chain=None, serial=None, openssl_cli=None, chain_pem='', verify_chain
+    ):
+        self.cert = cert
+        self.key = key
+        self.key_password = key_password
+        self.cert_chain = cert_chain
+        self.serial = serial
+        self._openssl_cli = openssl_cli or OpenSSLCLI()
+        self._chain_pem = chain_pem
+        self._verify_chain = verify_chain
 
     def create_intermediate_ca(self, org, cn='Intermediate CA', *, days=DEFAULT_VALIDITY_DAYS):
         """
@@ -52,7 +64,7 @@ class _CABase(CKP):
         :param dc: Domain Component (optional)
         :param san: list of Subject Alternative Names, e.g. ['DNS:localhost', '10.0.0.1'] (optional)
         :param days: certificate validity in days (default: DEFAULT_VALIDITY_DAYS)
-        :return: CKP namedtuple with cert, key, key_password, cert_chain and serial
+        :return: CertKeyPair with cert, key, key_password, cert_chain and serial
         """
         x = CreateServerCert(
             self._openssl_cli,
@@ -63,22 +75,19 @@ class _CABase(CKP):
         )
         x.run(cn=cn, org=org, dc=dc, san=san, days=days)
         cert_chain = x.cert + self._chain_pem
-        return CKP(cert=x.cert, key=x.key, key_password=x.key_password, cert_chain=cert_chain, serial=x.serial)
+        return CertKeyPair(cert=x.cert, key=x.key, key_password=x.key_password, cert_chain=cert_chain, serial=x.serial)
 
 
 class RootCA(_CABase):
     """
     Root Certificate Authority.
 
-    Inherits from CKP namedtuple, so it supports attribute access,
-    tuple unpacking and indexing.
-
     Create a new root CA using the class method :meth:`init_ca`,
     or construct directly from existing PEM data.
     """
 
-    def __new__(
-        cls,
+    def __init__(
+        self,
         cert,
         key,
         key_password,
@@ -98,13 +107,16 @@ class RootCA(_CABase):
         :param cert_chain: full certificate chain (PEM-encoded string, optional)
         :param serial: certificate serial number (hex string, optional)
         """
-        # Using __new__ instead of __init__ because namedtuple
-        # instances are created in __new__, not __init__.
-        obj = super().__new__(cls, cert=cert, key=key, key_password=key_password, cert_chain=cert_chain, serial=serial)
-        obj._openssl_cli = _openssl_cli or OpenSSLCLI()
-        obj._chain_pem = _chain_pem
-        obj._verify_chain = _verify_chain if _verify_chain is not None else cert
-        return obj
+        super().__init__(
+            cert=cert,
+            key=key,
+            key_password=key_password,
+            cert_chain=cert_chain,
+            serial=serial,
+            openssl_cli=_openssl_cli,
+            chain_pem=_chain_pem,
+            verify_chain=_verify_chain if _verify_chain is not None else cert,
+        )
 
     @classmethod
     def init_ca(cls, org, cn='CA', *, days=DEFAULT_VALIDITY_DAYS, _openssl_cli=None):
@@ -134,17 +146,14 @@ class IntermediateCA(_CABase):
     """
     Intermediate Certificate Authority.
 
-    Inherits from CKP namedtuple, so it supports attribute access,
-    tuple unpacking and indexing.
-
     Create a new intermediate CA using :meth:`RootCA.create_intermediate_ca`
     (or :meth:`IntermediateCA.create_intermediate_ca`),
     or construct directly from existing PEM data by providing
     either a ``parent`` CA object or a ``parent_ca_cert`` PEM string.
     """
 
-    def __new__(
-        cls,
+    def __init__(
+        self,
         cert,
         key,
         key_password,
@@ -189,12 +198,16 @@ class IntermediateCA(_CABase):
         if cert_chain is None:
             cert_chain = chain_pem
 
-        openssl_cli = _openssl_cli or OpenSSLCLI()
-        obj = super().__new__(cls, cert=cert, key=key, key_password=key_password, cert_chain=cert_chain, serial=serial)
-        obj._openssl_cli = openssl_cli
-        obj._chain_pem = chain_pem
-        obj._verify_chain = verify_chain
-        return obj
+        super().__init__(
+            cert=cert,
+            key=key,
+            key_password=key_password,
+            cert_chain=cert_chain,
+            serial=serial,
+            openssl_cli=_openssl_cli,
+            chain_pem=chain_pem,
+            verify_chain=verify_chain,
+        )
 
 
 # Backward-compatible alias

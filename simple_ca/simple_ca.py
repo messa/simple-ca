@@ -1,7 +1,7 @@
 import logging
 
 from .ca import CA
-from .types import CKP, DEFAULT_VALIDITY_DAYS
+from .types import CertKeyPair, DEFAULT_VALIDITY_DAYS
 from .functions.init_ca import InitCA
 from .functions.create_server_cert import CreateServerCert
 from .openssl_cli import OpenSSLCLI
@@ -49,4 +49,4 @@ class SimpleCA:
         """
         x = CreateServerCert(self.openssl_cli, ca_cert=ca_cert, ca_key=ca_key, ca_key_password=ca_key_password)
         x.run(cn=cn, org=org, dc=dc, san=san, days=days)
-        return CKP(cert=x.cert, key=x.key, key_password=x.key_password, serial=x.serial)
+        return CertKeyPair(cert=x.cert, key=x.key, key_password=x.key_password, serial=x.serial)
