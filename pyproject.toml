@@ -22,9 +22,18 @@ requires-python = ">=3.9"
 [dependency-groups]
 dev = [
     "pytest",
-    "flake8",
+    "ruff",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
