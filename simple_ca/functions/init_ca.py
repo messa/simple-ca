@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 from textwrap import dedent
 
 from ..types import DEFAULT_VALIDITY_DAYS
+from .helpers import extract_serial
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ class InitCA:
             assert self.key_password
             self.key = self._key_file.open().read()
             self.cert = self._cert_file.open().read()
-            self._extract_serial()
+            self.serial = extract_serial(self.openssl_cli, self._cert_file)
 
     def _create_cfg(self):
         assert not self._conf_file.is_file()
@@ -67,10 +68,6 @@ class InitCA:
         self.openssl_cli(
             'genrsa', '-aes256', '-out', self._key_file, '-passout', 'file:' + str(self._key_password_file), 4096
         )
-
-    def _extract_serial(self):
-        out = self.openssl_cli('x509', '-noout', '-serial', '-in', self._cert_file)
-        self.serial = out.strip().split('=', 1)[1]
 
     def _create_cert(self, org, cn, days):
         assert self._conf_file.is_file()

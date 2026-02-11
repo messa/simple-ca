@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from textwrap import dedent
 
 from ..types import DEFAULT_VALIDITY_DAYS
+from .helpers import extract_serial
 
 
 logger = getLogger(__name__)
@@ -53,7 +54,7 @@ class CreateServerCert:
             assert self.key_password
             self.key = self._key_file.open().read()
             self.cert = self._cert_file.open().read()
-            self._extract_serial()
+            self.serial = extract_serial(self.openssl_cli, self._cert_file)
 
     @staticmethod
     def _san_entry(name):
@@ -132,10 +133,6 @@ class CreateServerCert:
             self._get_subj(cn=cn, org=org, dc=dc),
         )
         assert self._csr_file.is_file()
-
-    def _extract_serial(self):
-        out = self.openssl_cli('x509', '-noout', '-serial', '-in', self._cert_file)
-        self.serial = out.strip().split('=', 1)[1]
 
     def _create_cert(self, days):
         assert self._conf_file.is_file()
