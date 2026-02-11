@@ -51,11 +51,7 @@ async def _run_tls_http_server(server_ctx, host, port, ready_event):
                 break
         body = b'Hello, world!\n'
         response = (
-            b'HTTP/1.1 200 OK\r\n'
-            b'Content-Length: ' + str(len(body)).encode() + b'\r\n'
-            b'Connection: close\r\n'
-            b'\r\n'
-            + body
+            b'HTTP/1.1 200 OK\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body
         )
         writer.write(response)
         await writer.drain()
@@ -279,8 +275,12 @@ async def test_https_curl(tmp_path):
         port = ready_event.port
 
         proc = await create_subprocess_exec(
-            'curl', '--cacert', str(ca_cert_path), f'https://localhost:{port}/',
-            stdout=PIPE, stderr=PIPE,
+            'curl',
+            '--cacert',
+            str(ca_cert_path),
+            f'https://localhost:{port}/',
+            stdout=PIPE,
+            stderr=PIPE,
         )
         stdout, stderr = await proc.communicate()
         assert proc.returncode == 0, f'curl failed: {stderr.decode()}'
@@ -319,8 +319,12 @@ async def test_https_curl_intermediate_ca(tmp_path):
         port = ready_event.port
 
         proc = await create_subprocess_exec(
-            'curl', '--cacert', str(root_cert_path), f'https://localhost:{port}/',
-            stdout=PIPE, stderr=PIPE,
+            'curl',
+            '--cacert',
+            str(root_cert_path),
+            f'https://localhost:{port}/',
+            stdout=PIPE,
+            stderr=PIPE,
         )
         stdout, stderr = await proc.communicate()
         assert proc.returncode == 0, f'curl failed: {stderr.decode()}'

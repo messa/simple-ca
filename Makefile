@@ -1,7 +1,7 @@
 uv=uv
 
 check:
-	$(uv) run pytest -vv $(pytest_args) tests
+	$(uv) run pytest -vv -n 6 $(pytest_args) tests
 
 lint:
 	$(uv) run ruff check .

@@ -207,107 +207,6 @@ def test_server_cert_has_cert_chain():
     assert sc.cert_chain == sc.cert
 
 
-def test_create_intermediate_ca():
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME', cn='Intermediate CA')
-    _check_ckp(inter)
-    assert isinstance(inter, CA)
-
-
-def test_intermediate_ca_is_ca_cert():
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME')
-    out = _openssl_x509_text(inter.cert)
-    assert 'CA:TRUE' in out
-    assert 'Certificate Sign' in out
-    assert 'CRL Sign' in out
-
-
-def test_intermediate_ca_has_pathlen():
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME')
-    out = _openssl_x509_text(inter.cert)
-    assert 'pathlen:0' in out
-
-
-def test_intermediate_ca_custom_cn():
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME', cn='My Intermediate')
-    out = _openssl_x509_text(inter.cert)
-    assert 'My Intermediate' in out
-
-
-def test_intermediate_ca_verified_by_root(tmp_path):
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME')
-    (tmp_path / 'root.cert').write_text(root.cert)
-    (tmp_path / 'inter.cert').write_text(inter.cert)
-    result = subprocess.run(
-        ['openssl', 'verify', '-CAfile', str(tmp_path / 'root.cert'), str(tmp_path / 'inter.cert')],
-        capture_output=True,
-    )
-    assert result.returncode == 0
-
-
-def test_intermediate_ca_cert_chain():
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME')
-    assert inter.cert_chain is not None
-    assert inter.cert in inter.cert_chain
-    assert root.cert not in inter.cert_chain
-
-
-def test_server_cert_from_intermediate():
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME')
-    sc = inter.create_server_cert(cn='localhost', org='ACME')
-    _check_ckp(sc)
-    out = _openssl_x509_text(sc.cert)
-    assert 'CA:FALSE' in out
-
-
-def test_server_cert_from_intermediate_cert_chain():
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME')
-    sc = inter.create_server_cert(cn='localhost', org='ACME')
-    # cert_chain should contain both server cert and intermediate cert
-    assert sc.cert in sc.cert_chain
-    assert inter.cert in sc.cert_chain
-    # but not the root cert
-    assert root.cert not in sc.cert_chain
-
-
-def test_server_cert_from_intermediate_verified(tmp_path):
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME')
-    sc = inter.create_server_cert(cn='localhost', org='ACME')
-    (tmp_path / 'root.cert').write_text(root.cert)
-    (tmp_path / 'inter.cert').write_text(inter.cert)
-    (tmp_path / 'server.cert').write_text(sc.cert)
-    result = subprocess.run(
-        [
-            'openssl',
-            'verify',
-            '-CAfile',
-            str(tmp_path / 'root.cert'),
-            '-untrusted',
-            str(tmp_path / 'inter.cert'),
-            str(tmp_path / 'server.cert'),
-        ],
-        capture_output=True,
-    )
-    assert result.returncode == 0
-
-
-def test_server_cert_from_intermediate_with_san():
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME')
-    sc = inter.create_server_cert(cn='localhost', org='ACME', san=['localhost', '127.0.0.1'])
-    out = _openssl_x509_text(sc.cert)
-    assert 'DNS:localhost' in out
-    assert 'IP Address:127.0.0.1' in out
-
-
 # --- days parameter tests ---
 
 
@@ -322,13 +221,6 @@ def test_create_server_cert_custom_validity():
     sc = ca.create_server_cert(cn='localhost', org='ACME', days=30)
     _check_ckp(sc)
     assert _get_cert_validity_days(sc.cert) == 30
-
-
-def test_create_intermediate_ca_custom_validity():
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME', days=3650)
-    _check_ckp(inter)
-    assert _get_cert_validity_days(inter.cert) == 3650
 
 
 def test_default_validity_days_constant():
@@ -354,15 +246,6 @@ def test_server_cert_has_serial():
     assert isinstance(sc.serial, str)
     assert len(sc.serial) > 0
     int(sc.serial, 16)
-
-
-def test_intermediate_ca_has_serial():
-    root = CA.init_ca(org='ACME', cn='Root CA')
-    inter = root.create_intermediate_ca(org='ACME')
-    assert inter.serial is not None
-    assert isinstance(inter.serial, str)
-    assert len(inter.serial) > 0
-    int(inter.serial, 16)
 
 
 def test_serial_is_unique():

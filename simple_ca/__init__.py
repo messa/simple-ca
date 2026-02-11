@@ -1,5 +1,5 @@
 from .simple_ca import SimpleCA
-from .ca import CA
+from .ca import CA, RootCA, IntermediateCA
 from .types import CKP, DEFAULT_VALIDITY_DAYS
 
 
@@ -9,5 +9,7 @@ __all__ = [
     'CA',
     'CKP',
     'DEFAULT_VALIDITY_DAYS',
+    'IntermediateCA',
+    'RootCA',
     'SimpleCA',
 ]

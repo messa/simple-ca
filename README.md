@@ -21,7 +21,7 @@ Usage
 -----
 
 ```python
-from simple_ca import CA
+from simple_ca import CA  # CA is an alias for RootCA
 
 ca = CA.init_ca(org='ACME')
 # now you have created your own CA
@@ -58,6 +58,22 @@ intermediate_ca = root_ca.create_intermediate_ca(org='ACME', cn='Intermediate CA
 sc = intermediate_ca.create_server_cert(cn='localhost', org='ACME', san=['localhost'])
 # sc.cert_chain contains the full certificate chain (server cert + intermediate cert)
 # Use sc.cert_chain (not sc.cert) when configuring TLS servers
+```
+
+You can reconstruct an `IntermediateCA` from previously saved PEM data:
+
+```python
+from simple_ca import RootCA, IntermediateCA
+
+root = RootCA(cert=root_cert, key=root_key, key_password=root_key_password)
+inter = IntermediateCA(cert=inter_cert, key=inter_key, key_password=inter_key_password, parent=root)
+sc = inter.create_server_cert(cn='localhost', org='ACME', san=['localhost'])
+```
+
+If you don't have the root CA as an object, you can pass the root certificate PEM directly:
+
+```python
+inter = IntermediateCA(cert=inter_cert, key=inter_key, key_password=inter_key_password, parent_ca_cert=root_cert_pem)
 ```
 
 
