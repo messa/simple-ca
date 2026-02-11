@@ -43,6 +43,9 @@ ca = CA(cert=saved_cert, key=saved_key, key_password=saved_key_password)
 sc = ca.create_server_cert(cn='localhost', org='ACME')
 ```
 
+I recommend to store the `cert` and `key` in plain text files and `key_password` in encrypted file (using GPG, [AGE](https://age-encryption.org) etc.).
+
+
 ### Legacy API
 
 ```python
@@ -54,10 +57,10 @@ sc = s.create_server_cert(
     cn='localhost', org='ACME', dc='example')
 ```
 
-I recommend to store the `cert` and `key` in plain text files and `key_password` in GPG-encrypted file.
-
 
 Similar projects
 ----------------
 
-- https://github.com/rocaccion/quick-ca
+- [github.com/rocaccion/quick-ca](https://github.com/rocaccion/quick-ca)
+
+- [cryptography.x509](https://cryptography.io/en/latest/x509/), [example](https://gist.github.com/major/8ac9f98ae8b07f46b208)
