@@ -15,7 +15,7 @@ class CA(CKP):
     or construct directly from existing PEM data.
     """
 
-    def __new__(cls, cert, key, key_password):
+    def __new__(cls, cert, key, key_password, *, _openssl_cli=None):
         """
         Construct a CA from existing PEM data.
 
@@ -25,10 +25,12 @@ class CA(CKP):
         """
         # Using __new__ instead of __init__ because namedtuple
         # instances are created in __new__, not __init__.
-        return super().__new__(cls, cert=cert, key=key, key_password=key_password)
+        obj = super().__new__(cls, cert=cert, key=key, key_password=key_password)
+        obj._openssl_cli = _openssl_cli or OpenSSLCLI()
+        return obj
 
     @classmethod
-    def init_ca(cls, org, cn='CA'):
+    def init_ca(cls, org, cn='CA', *, _openssl_cli=None):
         """
         Create a new Certificate Authority.
 
@@ -36,10 +38,10 @@ class CA(CKP):
         :param cn: Common Name (default: 'CA')
         :return: CA instance with generated cert, key and key_password
         """
-        openssl_cli = OpenSSLCLI()
+        openssl_cli = _openssl_cli or OpenSSLCLI()
         x = InitCA(openssl_cli)
         x.run(org=org, cn=cn)
-        return cls(cert=x.cert, key=x.key, key_password=x.key_password)
+        return cls(cert=x.cert, key=x.key, key_password=x.key_password, _openssl_cli=openssl_cli)
 
     def create_server_cert(self, cn, org, dc=None, san=None):
         """
@@ -51,7 +53,6 @@ class CA(CKP):
         :param san: list of Subject Alternative Names, e.g. ['DNS:localhost', '10.0.0.1'] (optional)
         :return: CKP namedtuple with cert, key and key_password
         """
-        openssl_cli = OpenSSLCLI()
-        x = CreateServerCert(openssl_cli, ca_cert=self.cert, ca_key=self.key, ca_key_password=self.key_password)
+        x = CreateServerCert(self._openssl_cli, ca_cert=self.cert, ca_key=self.key, ca_key_password=self.key_password)
         x.run(cn=cn, org=org, dc=dc, san=san)
         return CKP(cert=x.cert, key=x.key, key_password=x.key_password)

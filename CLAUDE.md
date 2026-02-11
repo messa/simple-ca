@@ -50,6 +50,10 @@ All three are exported from `simple_ca/__init__.py`.
 
 Each function class works by writing openssl config files and key material to a `TemporaryDirectory`, invoking openssl commands, then reading back the results. The temp directory is cleaned up automatically.
 
+## Code Style
+
+- Prefer `from A import B` style imports instead of `import A`.
+
 ## Packaging
 
 Uses `pyproject.toml` with hatchling build backend. Managed with `uv`. No runtime dependencies beyond Python stdlib and the `openssl` system command. Dev dependencies: `pytest`, `ruff`.

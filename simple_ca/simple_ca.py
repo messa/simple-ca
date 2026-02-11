@@ -22,7 +22,7 @@ class SimpleCA:
     def init_ca(self, org, cn='CA'):
         x = InitCA(self.openssl_cli)
         x.run(org=org, cn=cn)
-        return CA(cert=x.cert, key=x.key, key_password=x.key_password)
+        return CA(cert=x.cert, key=x.key, key_password=x.key_password, _openssl_cli=self.openssl_cli)
 
     def create_server_cert(self, ca_cert, ca_key, ca_key_password, cn, org, dc=None, san=None):
         """

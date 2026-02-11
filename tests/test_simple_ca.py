@@ -1,3 +1,7 @@
+"""
+Tests for legacy SimpleCA API.
+"""
+
 import re
 import subprocess
 
@@ -43,7 +47,6 @@ def test_create_server_cert():
 def test_create_server_cert_using_ca_api():
     s = SimpleCA()
     ca = s.init_ca(org='ACME')
-    # SimpleCA object is stateless, you have to pass CA data again to create server cert
     sc = ca.create_server_cert(cn='localhost', org='ACME', dc='example')
     assert sc.cert
     assert sc.key
@@ -59,7 +62,6 @@ def test_create_server_cert_using_ca_api():
 def test_create_server_cert_with_san_dns():
     s = SimpleCA()
     ca = s.init_ca(org='ACME')
-    # SimpleCA object is stateless, you have to pass CA data again to create server cert
     sc = s.create_server_cert(
         ca_cert=ca.cert,
         ca_key=ca.key,
