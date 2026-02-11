@@ -291,3 +291,43 @@ async def test_https_curl(tmp_path):
             await server_task
         except CancelledError:
             pass
+
+
+@mark.asyncio
+async def test_https_curl_intermediate_ca(tmp_path):
+    """HTTPS + curl with intermediate CA — server sends fullchain, curl trusts only root."""
+    root = CA.init_ca(org='ACME', cn='Root CA')
+    inter = root.create_intermediate_ca(org='ACME', cn='Intermediate CA')
+    sc = inter.create_server_cert(cn='localhost', org='ACME', san=['localhost'])
+
+    root_cert_path = tmp_path / 'root.pem'
+    root_cert_path.write_text(root.cert)
+
+    fullchain_path = tmp_path / 'fullchain.pem'
+    fullchain_path.write_text(sc.cert_chain)
+    server_key_path = tmp_path / 'server.key'
+    server_key_path.write_text(sc.key)
+
+    server_ctx = SSLContext(PROTOCOL_TLS_SERVER)
+    server_ctx.load_cert_chain(fullchain_path, server_key_path, password=sc.key_password)
+
+    ready_event = Event()
+    server_task = create_task(_run_tls_http_server(server_ctx, '127.0.0.1', 0, ready_event))
+
+    try:
+        await ready_event.wait()
+        port = ready_event.port
+
+        proc = await create_subprocess_exec(
+            'curl', '--cacert', str(root_cert_path), f'https://localhost:{port}/',
+            stdout=PIPE, stderr=PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        assert proc.returncode == 0, f'curl failed: {stderr.decode()}'
+        assert stdout == b'Hello, world!\n'
+    finally:
+        server_task.cancel()
+        try:
+            await server_task
+        except CancelledError:
+            pass
