@@ -5,8 +5,8 @@ __Python OpenSSL wrapper__ that can create __your own certificate authority (CA)
 
 Use cases:
 
-- enable SSL communication in your private MongoDB cluster
-- easy setup your SSL infrastructure for any services that need it, for example VPN
+- Enable SSL communication in your private MongoDB cluster
+- Easy setup your SSL infrastructure for any services that need it, for example VPN
 
 
 Installation

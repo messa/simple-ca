@@ -12,16 +12,22 @@ simple-ca is a Python library that wraps the `openssl` CLI to create a custom Ce
 ```
 make check
 ```
-This creates a venv, installs dependencies + the package in editable mode, then runs pytest.
-
-### Run tests directly (if venv already set up)
-```
-PYTHONDONTWRITEBYTECODE=1 venv/bin/python3 -m pytest -vs tests
-```
+This runs `uv run pytest -vs tests`.
 
 ### Run a single test
 ```
-venv/bin/python3 -m pytest -vs tests/test_simple_ca.py::test_create_server_cert
+uv run pytest -vs tests/test_simple_ca.py::test_create_server_cert
+```
+
+### Lint
+```
+make lint
+```
+This runs `ruff check` and `ruff format --check`.
+
+### Lint and auto-fix
+```
+make lint-fix
 ```
 
 ## Architecture
@@ -46,4 +52,4 @@ Each function class works by writing openssl config files and key material to a 
 
 ## Packaging
 
-Uses `setup.py` (no pyproject.toml). No runtime dependencies beyond Python stdlib and the `openssl` system command.
+Uses `pyproject.toml` with hatchling build backend. Managed with `uv`. No runtime dependencies beyond Python stdlib and the `openssl` system command. Dev dependencies: `pytest`, `ruff`.
