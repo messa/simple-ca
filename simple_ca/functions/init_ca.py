@@ -8,10 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 class InitCA:
-
-    '''
+    """
     This class API may change (non-backward-compatible) between minor versions.
-    '''
+    """
 
     def __init__(self, openssl_cli):
         self.logger = logger
@@ -34,7 +33,8 @@ class InitCA:
     def _create_cfg(self):
         assert not self._conf_file.is_file()
         with self._conf_file.open('w') as f:
-            f.write(dedent('''
+            f.write(
+                dedent("""
                 [req]
                 default_bits        = 4096
                 distinguished_name  = req_distinguished_name
@@ -50,7 +50,8 @@ class InitCA:
                 authorityKeyIdentifier = keyid:always,issuer
                 basicConstraints       = critical, CA:true
                 keyUsage               = critical, digitalSignature, cRLSign, keyCertSign
-            '''))
+            """)
+            )
 
     def _create_key(self):
         assert not self._key_file.is_file()
@@ -61,11 +62,8 @@ class InitCA:
         with self._key_password_file.open('w') as f:
             f.write(self.key_password)
         self.openssl_cli(
-            'genrsa',
-            '-aes256',
-            '-out', self._key_file,
-            '-passout', 'file:' + str(self._key_password_file),
-            4096)
+            'genrsa', '-aes256', '-out', self._key_file, '-passout', 'file:' + str(self._key_password_file), 4096
+        )
 
     def _create_cert(self, org, cn):
         assert self._conf_file.is_file()
@@ -76,22 +74,26 @@ class InitCA:
         assert cn
         self.openssl_cli(
             'req',
-            '-config', self._conf_file,
+            '-config',
+            self._conf_file,
             '-new',
             '-x509',
-            '-days', 10000,
-            '-key', self._key_file,
-            '-passin', 'file:' + str(self._key_password_file),
-            '-out', self._cert_file,
-            '-extensions', 'v3_ca',
-            '-subj', '/O={org}/CN={cn}'.format(org=org, cn=cn))
+            '-days',
+            10000,
+            '-key',
+            self._key_file,
+            '-passin',
+            'file:' + str(self._key_password_file),
+            '-out',
+            self._cert_file,
+            '-extensions',
+            'v3_ca',
+            '-subj',
+            '/O={org}/CN={cn}'.format(org=org, cn=cn),
+        )
         assert self._cert_file.is_file()
         # verify CA certificate
-        out = self.openssl_cli(
-            'x509',
-            '-noout',
-            '-text',
-            '-in', self._cert_file)
+        out = self.openssl_cli('x509', '-noout', '-text', '-in', self._cert_file)
         for line in out.splitlines():
             self.logger.debug('Generated CA cert: %s', line.rstrip())
         assert 'CA:TRUE' in out

@@ -10,10 +10,9 @@ logger = logging.getLogger(__name__)
 
 
 class CreateServerCert:
-
-    '''
+    """
     This class API may change (non-backward-compatible) between minor versions.
-    '''
+    """
 
     def __init__(self, openssl_cli, ca_cert, ca_key, ca_key_password):
         self.logger = logger
@@ -59,7 +58,7 @@ class CreateServerCert:
 
     def _create_cfg(self, san=None):
         assert not self._conf_file.is_file()
-        cfg = dedent('''
+        cfg = dedent("""
             [req]
             default_bits        = 4096
             distinguished_name  = req_distinguished_name
@@ -78,7 +77,7 @@ class CreateServerCert:
             authorityKeyIdentifier  = keyid,issuer:always
             keyUsage                = critical, nonRepudiation, digitalSignature, keyEncipherment
             extendedKeyUsage        = serverAuth, clientAuth
-        ''')
+        """)
         if san:
             entries = ','.join(self._san_entry(s) for s in san)
             cfg = cfg.rstrip() + '\nsubjectAltName          = ' + entries + '\n'
@@ -94,11 +93,8 @@ class CreateServerCert:
         with self._key_password_file.open('w') as f:
             f.write(self.key_password)
         self.openssl_cli(
-            'genrsa',
-            '-aes256',
-            '-out', self._key_file,
-            '-passout', 'file:' + str(self._key_password_file),
-            4096)
+            'genrsa', '-aes256', '-out', self._key_file, '-passout', 'file:' + str(self._key_password_file), 4096
+        )
 
     def _get_subj(self, cn, org, dc):
         s = '/O=' + org
@@ -114,12 +110,18 @@ class CreateServerCert:
         assert not self._csr_file.is_file()
         self.openssl_cli(
             'req',
-            '-config', self._conf_file,
+            '-config',
+            self._conf_file,
             '-new',
-            '-key', self._key_file,
-            '-passin', 'file:' + str(self._key_password_file),
-            '-out', self._csr_file,
-            '-subj', self._get_subj(cn=cn, org=org, dc=dc))
+            '-key',
+            self._key_file,
+            '-passin',
+            'file:' + str(self._key_password_file),
+            '-out',
+            self._csr_file,
+            '-subj',
+            self._get_subj(cn=cn, org=org, dc=dc),
+        )
         assert self._csr_file.is_file()
 
     def _create_cert(self):
@@ -132,22 +134,28 @@ class CreateServerCert:
         self.openssl_cli(
             'x509',
             '-req',
-            '-extfile', self._conf_file,
-            '-days', 10000,
-            '-in', self._csr_file,
-            '-CA', self._ca_cert_file,
-            '-CAkey', self._ca_key_file,
-            '-passin', 'file:' + str(self._ca_key_password_file),
-            '-set_serial', int(time.time() * 1000000),
-            '-out', self._cert_file,
-            '-extensions', 'v3_server_client')
+            '-extfile',
+            self._conf_file,
+            '-days',
+            10000,
+            '-in',
+            self._csr_file,
+            '-CA',
+            self._ca_cert_file,
+            '-CAkey',
+            self._ca_key_file,
+            '-passin',
+            'file:' + str(self._ca_key_password_file),
+            '-set_serial',
+            int(time.time() * 1000000),
+            '-out',
+            self._cert_file,
+            '-extensions',
+            'v3_server_client',
+        )
         assert self._cert_file.is_file()
         # verify CA certificate
-        out = self.openssl_cli(
-            'x509',
-            '-noout',
-            '-text',
-            '-in', self._cert_file)
+        out = self.openssl_cli('x509', '-noout', '-text', '-in', self._cert_file)
         for line in out.splitlines():
             self.logger.debug('Generated server cert: %s', line.rstrip())
         assert 'CA:FALSE' in out
@@ -156,8 +164,5 @@ class CreateServerCert:
         assert 'SSL Server' in out
         assert 'Certificate Sign' not in out
         assert 'CRL Sign' not in out
-        out = self.openssl_cli(
-            'verify',
-            '-CAfile', self._ca_cert_file,
-            self._cert_file)
+        out = self.openssl_cli('verify', '-CAfile', self._ca_cert_file, self._cert_file)
         assert 'OK' in out
