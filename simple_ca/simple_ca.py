@@ -2,8 +2,10 @@ import logging
 
 from .ca import CA
 from .types import CKP
+from .functions.init_ca import InitCA
 from .functions.create_server_cert import CreateServerCert
 from .openssl_cli import OpenSSLCLI
+
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +20,9 @@ class SimpleCA:
         self.openssl_cli = OpenSSLCLI()
 
     def init_ca(self, org, cn='CA'):
-        return CA.init_ca(org=org, cn=cn)
+        x = InitCA(self.openssl_cli)
+        x.run(org=org, cn=cn)
+        return CA(cert=x.cert, key=x.key, key_password=x.key_password)
 
     def create_server_cert(self, ca_cert, ca_key, ca_key_password, cn, org, dc=None, san=None):
         """
