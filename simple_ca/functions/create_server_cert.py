@@ -5,6 +5,8 @@ from time import time_ns
 from tempfile import TemporaryDirectory
 from textwrap import dedent
 
+from ..types import DEFAULT_VALIDITY_DAYS
+
 
 logger = getLogger(__name__)
 
@@ -22,7 +24,7 @@ class CreateServerCert:
         self.ca_key_password = ca_key_password
         self.ca_verify_chain = ca_verify_chain
 
-    def run(self, cn, org, dc, san=None):
+    def run(self, cn, org, dc, san=None, days=DEFAULT_VALIDITY_DAYS):
         with TemporaryDirectory(prefix='simple_ca.') as temp_dir:
             temp_dir = Path(temp_dir)
             self._conf_file = temp_dir / 'openssl.conf'
@@ -47,10 +49,11 @@ class CreateServerCert:
             self._create_cfg(san=san)
             self._create_key()
             self._create_csr(cn=cn, org=org, dc=dc)
-            self._create_cert()
+            self._create_cert(days=days)
             assert self.key_password
             self.key = self._key_file.open().read()
             self.cert = self._cert_file.open().read()
+            self._extract_serial()
 
     @staticmethod
     def _san_entry(name):
@@ -130,7 +133,11 @@ class CreateServerCert:
         )
         assert self._csr_file.is_file()
 
-    def _create_cert(self):
+    def _extract_serial(self):
+        out = self.openssl_cli('x509', '-noout', '-serial', '-in', self._cert_file)
+        self.serial = out.strip().split('=', 1)[1]
+
+    def _create_cert(self, days):
         assert self._conf_file.is_file()
         assert self._ca_cert_file.is_file()
         assert self._ca_key_file.is_file()
@@ -143,7 +150,7 @@ class CreateServerCert:
             '-extfile',
             self._conf_file,
             '-days',
-            10000,
+            days,
             '-in',
             self._csr_file,
             '-CA',

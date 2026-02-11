@@ -1,4 +1,4 @@
-from .types import CKP
+from .types import CKP, DEFAULT_VALIDITY_DAYS
 from .openssl_cli import OpenSSLCLI
 from .functions.init_ca import InitCA
 from .functions.create_intermediate_ca import CreateIntermediateCA
@@ -16,7 +16,18 @@ class CA(CKP):
     or construct directly from existing PEM data.
     """
 
-    def __new__(cls, cert, key, key_password, cert_chain=None, *, _openssl_cli=None, _chain_pem='', _verify_chain=None):
+    def __new__(
+        cls,
+        cert,
+        key,
+        key_password,
+        cert_chain=None,
+        serial=None,
+        *,
+        _openssl_cli=None,
+        _chain_pem='',
+        _verify_chain=None,
+    ):
         """
         Construct a CA from existing PEM data.
 
@@ -24,10 +35,11 @@ class CA(CKP):
         :param key: CA private key (PEM-encoded string)
         :param key_password: password to the CA private key
         :param cert_chain: full certificate chain (PEM-encoded string, optional)
+        :param serial: certificate serial number (hex string, optional)
         """
         # Using __new__ instead of __init__ because namedtuple
         # instances are created in __new__, not __init__.
-        obj = super().__new__(cls, cert=cert, key=key, key_password=key_password, cert_chain=cert_chain)
+        obj = super().__new__(cls, cert=cert, key=key, key_password=key_password, cert_chain=cert_chain, serial=serial)
         obj._openssl_cli = _openssl_cli or OpenSSLCLI()
         # _chain_pem: intermediate certs to append when building cert_chain for leaf certs.
         # Empty string for root CA, intermediate cert(s) PEM for intermediate CAs.
@@ -37,32 +49,35 @@ class CA(CKP):
         return obj
 
     @classmethod
-    def init_ca(cls, org, cn='CA', *, _openssl_cli=None):
+    def init_ca(cls, org, cn='CA', *, days=DEFAULT_VALIDITY_DAYS, _openssl_cli=None):
         """
         Create a new Certificate Authority.
 
         :param org: Organization Name
         :param cn: Common Name (default: 'CA')
+        :param days: certificate validity in days (default: DEFAULT_VALIDITY_DAYS)
         :return: CA instance with generated cert, key and key_password
         """
         openssl_cli = _openssl_cli or OpenSSLCLI()
         x = InitCA(openssl_cli)
-        x.run(org=org, cn=cn)
+        x.run(org=org, cn=cn, days=days)
         return cls(
             cert=x.cert,
             key=x.key,
             key_password=x.key_password,
+            serial=x.serial,
             _openssl_cli=openssl_cli,
             _chain_pem='',
             _verify_chain=x.cert,
         )
 
-    def create_intermediate_ca(self, org, cn='Intermediate CA'):
+    def create_intermediate_ca(self, org, cn='Intermediate CA', *, days=DEFAULT_VALIDITY_DAYS):
         """
         Create an intermediate CA signed by this CA.
 
         :param org: Organization Name
         :param cn: Common Name (default: 'Intermediate CA')
+        :param days: certificate validity in days (default: DEFAULT_VALIDITY_DAYS)
         :return: CA instance for the intermediate CA
         """
         x = CreateIntermediateCA(
@@ -72,7 +87,7 @@ class CA(CKP):
             ca_key_password=self.key_password,
             ca_verify_chain=self._verify_chain,
         )
-        x.run(org=org, cn=cn)
+        x.run(org=org, cn=cn, days=days)
         chain_pem = x.cert + self._chain_pem
         verify_chain = x.cert + self._verify_chain
         return CA(
@@ -80,12 +95,13 @@ class CA(CKP):
             key=x.key,
             key_password=x.key_password,
             cert_chain=chain_pem,
+            serial=x.serial,
             _openssl_cli=self._openssl_cli,
             _chain_pem=chain_pem,
             _verify_chain=verify_chain,
         )
 
-    def create_server_cert(self, cn, org, dc=None, san=None):
+    def create_server_cert(self, cn, org, dc=None, san=None, *, days=DEFAULT_VALIDITY_DAYS):
         """
         Create a server certificate signed by this CA.
 
@@ -93,7 +109,8 @@ class CA(CKP):
         :param org: Organization Name
         :param dc: Domain Component (optional)
         :param san: list of Subject Alternative Names, e.g. ['DNS:localhost', '10.0.0.1'] (optional)
-        :return: CKP namedtuple with cert, key, key_password and cert_chain
+        :param days: certificate validity in days (default: DEFAULT_VALIDITY_DAYS)
+        :return: CKP namedtuple with cert, key, key_password, cert_chain and serial
         """
         x = CreateServerCert(
             self._openssl_cli,
@@ -102,6 +119,6 @@ class CA(CKP):
             ca_key_password=self.key_password,
             ca_verify_chain=self._verify_chain,
         )
-        x.run(cn=cn, org=org, dc=dc, san=san)
+        x.run(cn=cn, org=org, dc=dc, san=san, days=days)
         cert_chain = x.cert + self._chain_pem
-        return CKP(cert=x.cert, key=x.key, key_password=x.key_password, cert_chain=cert_chain)
+        return CKP(cert=x.cert, key=x.key, key_password=x.key_password, cert_chain=cert_chain, serial=x.serial)

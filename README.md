@@ -34,6 +34,7 @@ sc = ca.create_server_cert(cn='localhost', org='ACME', dc='example')
 # sc.cert is the SSL certficate
 # sc.key is key to that certificate (needed on the server)
 # sc.key_password is password to the key, keep this private
+# sc.serial is the certificate serial number (hex string)
 ```
 
 You can also reconstruct a `CA` object from previously saved PEM data:
@@ -81,7 +82,12 @@ In this scenario, traditional certificate revocation mechanisms (CRL, OCSP) are 
 
 This approach avoids the complexity of running CRL distribution points or OCSP responders, and eliminates the window of vulnerability inherent in periodic CRL refresh. It works well when certificate deployment is already automated as part of your infrastructure provisioning.
 
-For additional defense in depth, consider using **short-lived certificates** (hours to days) with automated renewal, so that even without explicit revocation, a compromised certificate becomes useless quickly.
+For additional defense in depth, consider using **short-lived certificates** (hours to days) with automated renewal, so that even without explicit revocation, a compromised certificate becomes useless quickly. You can control certificate validity via the `days` parameter:
+
+```python
+ca = CA.init_ca(org='ACME', days=3650)  # CA valid for 10 years
+sc = ca.create_server_cert(cn='localhost', org='ACME', days=30)  # cert valid for 30 days
+```
 
 
 Similar projects
